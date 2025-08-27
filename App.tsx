@@ -574,17 +574,14 @@ const Desktop = ({ onGameEnd }: { onGameEnd: (results: InteractionResults) => vo
     );
 };
 
-const EndingScreen = ({ title, description }: { title: string, description: string }) => {
-    const handleRestart = () => {
-        window.location.reload();
-    };
+const EndingScreen = ({ title, description, onRestart }: { title: string, description: string, onRestart: () => void }) => {
     return (
         <div className="bg-black text-white font-serif h-screen w-screen flex flex-col justify-center items-center p-8 animate-fade-in">
             <div className="text-2xl max-w-3xl text-center leading-relaxed">
                 <h1 className="text-4xl font-bold mb-4">{title}</h1>
                 <p>{description}</p>
                 <button 
-                    onClick={handleRestart}
+                    onClick={onRestart}
                     className="mt-8 px-6 py-2 border border-white rounded hover:bg-white hover:text-black transition-colors"
                 >
                     重新开始
@@ -607,6 +604,11 @@ const App = () => {
         setGameState('end');
     }, []);
 
+    const handleRestart = useCallback(() => {
+        setEnding(null);
+        setGameState('boot');
+    }, []);
+
     if (gameState === 'boot') {
         return <BootScreen onBootComplete={handleBootComplete} />;
     }
@@ -617,7 +619,7 @@ const App = () => {
         return <Desktop onGameEnd={handleGameEnd} />;
     }
     if (gameState === 'end' && ending) {
-        return <EndingScreen title={ending.title} description={ending.description} />;
+        return <EndingScreen title={ending.title} description={ending.description} onRestart={handleRestart} />;
     }
     return <div>Loading...</div>; // Fallback
 };
