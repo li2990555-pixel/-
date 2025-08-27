@@ -342,8 +342,8 @@ const BenjaminQuote = ({ onContinue }: { onContinue: () => void }) => {
             aria-label="继续"
         >
             <blockquote className="text-2xl max-w-3xl text-center leading-relaxed">
-                <p>“历史地描绘过去并不意味着“按它本来的样子”去认识它，而是意味着捕获一种记忆，意味着当记忆在危险的关头闪现出来时将其把握。”</p>
-                <footer className="mt-4 text-right">— 瓦尔特·本雅明《历史哲学论纲》</footer>
+                <p>历史地描绘过去并不意味着“按它本来的样子”去认识它，而是意味着捕获一种记忆，意味着当记忆在危险的关头闪现出来时将其把握。</p>
+                <footer className="mt-4 text-right">——瓦尔特•本雅明《历史哲学论纲》</footer>
             </blockquote>
             <p className="mt-12 text-gray-400 animate-pulse">点击任意处继续...</p> 
         </div>
