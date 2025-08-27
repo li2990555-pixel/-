@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 // --- SVG Icon Components ---
 
@@ -31,8 +31,9 @@ const RecycleBinIcon = () => (
 );
 
 // --- Data ---
+type IconKey = 'docs' | 'network' | 'recycle';
 
-const contentData = {
+const initialContentData: Record<IconKey, { title: string; content: string | string[] }> = {
     docs: {
         title: "我的文档",
         content: `一个夜晚，我独自坐在书桌前，桌上堆着文科的书籍，如历史、文学、哲学。笔尖悬在纸上，我却迟迟没有落下。你脑中回荡着父亲那句“没有用”，让你对自己所选择的热爱产生了深深的怀疑。你感到自己的兴趣和才华，仿佛成了被社会标准评判的“废物”。`,
@@ -59,7 +60,7 @@ interface Item {
     type: 'plain' | 'sacred';
 }
 
-const initialPlainItems: Record<keyof typeof contentData, Item[]> = {
+const initialPlainItems: Record<IconKey, Item[]> = {
     docs: [
         { id: 'item-1', name: '一本《小王子》', type: 'plain' },
         { id: 'item-2', name: '一张手绘的地图', type: 'plain' },
@@ -73,36 +74,89 @@ const initialPlainItems: Record<keyof typeof contentData, Item[]> = {
     recycle: [],
 };
 
-const recipes: Record<string, string> = {
-    "一本《小王子》|一张手绘的地图": "星空航路图",
-    "一本《小王子》|一支沾着墨水的钢笔": "童话之笔",
-    "一张手绘的地图|一支沾着墨水的钢笔": "探险家日记",
-    "一份带有红色箭头（下跌）的股票报告|那本未读完的《高等数学》": "确定性公式",
-    "一杯浓茶|那本未读完的《高等数学》": "苦涩人生公式",
-    "一杯浓茶|一份带有红色箭头（下跌）的股票报告": "风险与代价",
-    "一本《小王子》|一份带有红色箭头（下跌）的股票报告": "被定价的玫瑰",
-    "一本《小王子》|一杯浓茶": "苦涩的星光",
-    "一杯浓茶|一张手绘的地图": "流淌着泪水的航路",
-    "一份带有红色箭头（下跌）的股票报告|一支沾着墨水的钢笔": "冰冷的笔触",
-    "一杯浓茶|一支沾着墨水的钢笔": "墨香的苦涩",
-};
+// [Item1, Item2, Result]
+const recipesList: [string, string, string][] = [
+    // Your items
+    ["一本《小王子》", "一张手绘的地图", "星空航路图"],
+    ["一本《小王子》", "一支沾着墨水的钢笔", "童话之笔"],
+    ["一张手绘的地图", "一支沾着墨水的钢笔", "探险家日记"],
+    // Father's items
+    ["那本未读完的《高等数学》", "一份带有红色箭头（下跌）的股票报告", "确定性公式"],
+    ["那本未读完的《高等数学》", "一杯浓茶", "苦涩人生公式"],
+    ["一份带有红色箭头（下跌）的股票报告", "一杯浓茶", "风险与代价"],
+    // Cross items
+    ["一本《小王子》", "一份带有红色箭头（下跌）的股票报告", "被定价的玫瑰"],
+    ["一本《小王子》", "那本未读完的《高等数学》", "星辰的方程式"],
+    ["一张手绘的地图", "那本未读完的《高等数学》", "坐标系里的世界"],
+    ["一支沾着墨水的钢笔", "那本未读完的《高等数学》", "逻辑的诗篇"],
+];
 
-const sacredItemEffects: Record<string, { title: string; message: string }> = {
-    "星空航路图": { title: "治愈发生", message: "你找回了童年时对星空的向往，和那份不受拘束的想象力。你意识到，内心的宇宙，远比现实的枷锁要广阔。" },
-    "童话之笔": { title: "治愈发生", message: "你重新获得了用纯真视角描绘世界的能力。那些被“理性”划掉的奇思妙想，现在都重新闪耀着光芒。" },
-    "探险家日记": { title: "治愈发生", message: "你肯定了自我探索的价值。你明白，人生的地图并非只有一条世俗意义上的成功路径，每一条岔路都有独特的风景。" },
-    "确定性公式": { title: "治愈发生", message: "父亲理解了，冰冷的数字背后也可以有温度。他开始在不确定的市场中，寻找家庭带来的那份“确定”的幸福。" },
-    "苦涩人生公式": { title: "治愈发生", message: "父亲释然了，他明白了人生的苦涩是常态，但不代表没有解。他开始在苦涩的茶中，品味生活的回甘。" },
-    "风险与代价": { title: "治愈发生", message: "父亲放下了对失控的恐惧。他认识到，最大的风险不是投资失败，而是错过与家人共度的时光。" },
-    "被定价的玫瑰": { title: "治愈发生", message: "你与父亲都明白了，世界上有些珍贵的东西是无法用金钱衡量的，比如爱，比如梦想。" },
-    "苦涩的星光": { title: "治愈发生", message: "你们理解了彼此的重担。父亲的浓茶与你的星光，都是为了守护心中重要之物而付出的努力。" },
-    "流淌着泪水的航路": { title: "治愈发生", message: "你明白了父亲的苦涩，父亲也看到了你内心的航图。你们的泪水汇成河流，载着理解与爱，流向远方。" },
-    "冰冷的笔触": { title: "治愈发生", message: "你与父亲都意识到，无论是冰冷的数字还是感性的文字，都不应成为伤害对方的武器，而应是沟通的桥梁。" },
-    "墨香的苦涩": { title: "治愈发生", message: "你们在彼此的世界里，品尝到了对方的味道。文字的墨香与茶的苦涩交织，成了独属于你们的和解的滋味。" }
+const interactionEffects: Record<string, Partial<Record<IconKey, { type: 'heal' | 'no-heal', change: (prev: string | string[]) => string | string[] }>>> = {
+    "星空航路图": {
+        docs: { type: 'heal', change: (prev) => (prev as string).replace('深深的怀疑', '<s>深深的怀疑</s>') + '<new>你明白了，父亲看到的只是脚下的土地，而你，拥有的是整片星空。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>电脑屏幕上的《高等数学》旁边，浮现出一片星空背景。他似乎想起了什么，原来复杂的公式也能描绘星辰的轨迹，就像那些看似无用的梦想。</new>' },
+        recycle: { type: 'heal', change: (prev) => (prev as string[]).map(s => s === '中间，一张破碎的圆。汤，凉了。' ? '中间，一张<s>破碎的</s>圆被星光填补。汤，温了。' : s).concat('<new>他的K线，我的诗，都是探索未知世界的航路。</new>') },
+    },
+    "童话之笔": {
+        docs: { type: 'heal', change: (prev) => (prev as string).replace('“没有用”', '“<s>没有用</s>”<new>（被一朵玫瑰花的墨迹覆盖）</new>') + '<new>笔尖落下，写下的不是迎合，而是内心最真实的童话。真正的价值，无需向世界证明。</new>' },
+        network: { type: 'no-heal', change: (prev) => prev + '<new>电脑屏幕上浮现出一行字：“童话再美，也解不了生活的渴。” 然后迅速消失。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '汤，凉了。' ? '汤，凉了。<new>（一滴墨水滴入，晕开成泪痕）</new>' : s).concat('<new>最纯真的话语，却无法抵达。</new>') },
+    },
+    "探险家日记": {
+        docs: { type: 'heal', change: (prev) => (prev as string).replace('“废物”', '“<s>废物</s>”') + '<new>这不是废纸，这是我的精神世界的版图，每一个字都是我探索的足迹。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>父亲疲惫揉着的太阳穴停住了，他似乎在屏幕上看到了自己年轻时的影子。他也曾有过想要画满世界的地图，只是后来，地图变成了K线图。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '中间，一张破碎的圆。汤，凉了。' ? '我们，在各自的地图上探险，背对背。' : s) },
+    },
+    "确定性公式": {
+        docs: { type: 'no-heal', change: (prev) => prev + '<new>文本框中的文字（历史、文学、哲学）变得暗淡。试图用公式去衡量价值，只会让文字和情感变得苍白。</new>' },
+        network: { type: 'heal', change: (prev) => (prev as string).replace('红色箭头（下跌）的股票报告', '<s>红色箭头（下跌）的</s>股票报告') + '<new>他长舒一口气，仿佛在波动的风险中找到了唯一的确定性，内心得到了片刻的安宁。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '中间，一张破碎的圆。汤，凉了。' ? '破碎的圆旁边出现了一个巨大的等号，但等号两边空无一物。' : s).concat('<new>关系不是公式，无法计算，无法求解。</new>') },
+    },
+    "苦涩人生公式": {
+        docs: { type: 'no-heal', change: (prev) => prev + '<new>你感到一阵窒息，书桌上的书籍被一个巨大的积分符号压住。原来人生的苦涩，也可以被量化成一道无解的题。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>他喝了一口茶，看着屏幕上的公式。生活的苦，就像这道解不出的题，但每一天的推演，都是为了一个家。</new>' },
+        recycle: { type: 'heal', change: (prev) => ['我们同意，暂时休战。'] },
+    },
+    "风险与代价": {
+        docs: { type: 'no-heal', change: (prev) => prev + '<new>你笔下的文字开始变得犹豫。每一个选择，都有它的风险和代价。我的热爱，值得吗？ 之前的怀疑再次加深。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>茶杯空了，屏幕上的K线也静止了。他闭上眼，每一次点击的背后，都是一场无人知晓的豪赌。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '他眼里的K线，我笔下的诗。无声的河流。' ? '<new>他的风险，我的梦。他付代价，我写诗。</new>' : s) },
+    },
+    "星辰的方程式": {
+        docs: { type: 'heal', change: (prev) => prev + '<new>你拿起笔，在纸上写下了一个公式：爱 + 梦想 = ∞。原来最浪漫的宇宙，也可以用最严谨的语言来描述。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>电脑屏幕上，《高等数学》翻开，露出空白的扉页，上面缓缓写下一句话：“B612行星的坐标是多少？”</new>' },
+        recycle: { type: 'heal', change: (prev) => ['<new>数字与文字，开始在破碎的圆上共舞。</new>'] },
+    },
+    "被定价的玫瑰": {
+        docs: { type: 'no-heal', change: (prev) => prev + '<new>你仿佛看到自己珍爱的书籍被贴上了价格标签。当一切都可以被定价，我的玫瑰，还独一无二吗？</new>' },
+        network: { type: 'no-heal', change: (prev) => prev + '<new>他看着屏幕，鼠标箭头停留在“卖出”按钮上。他喃喃自语：情感，是投资最大的风险。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '汤，凉了。' ? '汤，凉了。<new>（一片玫瑰花瓣飘落，掉进了冰冷的汤里。）</new>' : s).concat('<new>珍贵之物，在不同的世界里，有着不同的价格。有时，一文不值。</new>') },
+    },
+    "坐标系里的世界": {
+        docs: { type: 'no-heal', change: (prev) => prev + '<new>你想象中的文学世界被网格线覆盖。用坐标去规定内心世界的边界，是一种束缚，还是一种清晰？ 你感到了迷茫。</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>电脑屏幕上，K线图变成了一张世界地图，上面标注着精准的经纬度。他想去的地方，全都有精确的坐标。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '我，这里。他，那里。' ? '我们在同一个坐标系里，却在不同的象限。' : s) },
+    },
+    "逻辑的诗篇": {
+        docs: { type: 'heal', change: (prev) => prev + '<new>你写下的诗句开始自动对仗、押韵，结构工整无比。当表达被赋予了逻辑的骨架，它会更坚强，还是会失去灵魂？</new>' },
+        network: { type: 'heal', change: (prev) => prev + '<new>屏幕上复杂的公式旁边，出现了一行注解，文字优美，解释了这个公式的哲学意义。他第一次发现，冰冷的数字背后，也能有诗意。</new>' },
+        recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '无声的河流。' ? '沉默，也是一种逻辑。' : s) },
+    },
 };
-
 
 // --- UI Components ---
+const renderStyledText = (text: string) => {
+    const parts = text.split(/(<s>.*?<\/s>|<new>.*?<\/new>)/g).filter(Boolean);
+    return parts.map((part, index) => {
+        if (part.startsWith('<s>')) {
+            return <s key={index}>{part.slice(3, -4)}</s>;
+        }
+        if (part.startsWith('<new>')) {
+            return <span key={index} className="text-green-700 animate-fade-in block mt-2">{part.slice(5, -6)}</span>;
+        }
+        return <span key={index}>{part}</span>;
+    });
+};
 
 const Window = ({ title, content, onClose }: { title: string; content: string | string[]; onClose: () => void; }) => {
     const [isDragging, setIsDragging] = useState(false);
@@ -156,20 +210,20 @@ const Window = ({ title, content, onClose }: { title: string; content: string | 
                 <span id="window-title" className="font-bold">{title}</span>
                 <button onClick={onClose} aria-label="Close" className="bg-[#C0C0C0] border-2 border-solid border-t-white border-l-white border-r-black border-b-black w-5 h-5 flex justify-center items-center font-bold">X</button>
             </div>
-            <div className="p-4 bg-white flex-grow m-1 font-mono text-black overflow-y-auto">
-                {typeof content === 'string' && <p className="whitespace-pre-wrap">{content}</p>}
-                {Array.isArray(content) && content.map((line, i) => <p key={i}>{line}</p>)}
+            <div className="p-4 bg-white flex-grow m-1 font-mono text-black overflow-y-auto leading-relaxed whitespace-pre-wrap">
+                 {typeof content === 'string' && <p>{renderStyledText(content)}</p>}
+                 {Array.isArray(content) && content.map((line, i) => <p key={i}>{renderStyledText(line)}</p>)}
             </div>
         </div>
     );
 };
 
-const DesktopIcon = ({ icon, name, onDoubleClick }: { icon: JSX.Element; name: string; onDoubleClick: () => void; }) => (
+const DesktopIcon = ({ icon, name, onDoubleClick, locked }: { icon: JSX.Element; name: string; onDoubleClick: () => void; locked?: boolean; }) => (
     <div 
-        className="flex flex-col items-center justify-center p-2 rounded cursor-pointer hover:bg-blue-500 hover:bg-opacity-50 focus:bg-blue-500 focus:bg-opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-300" 
+        className={`flex flex-col items-center justify-center p-2 rounded cursor-pointer ${locked ? 'opacity-50' : 'hover:bg-blue-500 hover:bg-opacity-50 focus:bg-blue-500 focus:bg-opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-300'}`}
         onDoubleClick={onDoubleClick}
-        tabIndex={0} // Make it focusable
-        onKeyDown={(e) => { if (e.key === 'Enter') onDoubleClick(); }}
+        tabIndex={locked ? -1 : 0}
+        onKeyDown={(e) => { if (!locked && e.key === 'Enter') onDoubleClick(); }}
     >
         {icon}
         <span className="text-white text-sm mt-1 text-center drop-shadow-lg">{name}</span>
@@ -199,30 +253,6 @@ const Toast = ({ message, show }: { message: string; show: number }) => {
     );
 };
 
-const HealingWindow = ({ title, message, onClose }: { title: string; message: string; onClose: () => void; }) => (
-    <div className="absolute inset-0 bg-black/60 flex justify-center items-center z-50 backdrop-blur-sm">
-        <div 
-            className="bg-[#C0C0C0] border-2 border-solid border-t-white border-l-white border-r-black border-b-black shadow-lg w-[500px] flex flex-col animate-fade-in"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="healing-title"
-            aria-describedby="healing-message"
-        >
-            <div className="bg-[#000080] text-white p-1 flex justify-between items-center">
-                <span id="healing-title" className="font-bold">{title}</span>
-            </div>
-            <div className="p-6 bg-white flex-grow m-1 font-mono text-black text-center flex flex-col justify-center items-center space-y-4">
-                <p id="healing-message" className="text-lg">{message}</p>
-                <button 
-                    onClick={onClose} 
-                    className="bg-[#C0C0C0] border-2 border-solid border-t-white border-l-white border-r-black border-b-black px-8 py-1 font-bold hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    关闭
-                </button>
-            </div>
-        </div>
-    </div>
-);
 
 // --- Main Application Stages ---
 
@@ -285,29 +315,30 @@ const BenjaminQuote = ({ onContinue }: { onContinue: () => void }) => {
     );
 };
 
-const Desktop = ({ onAllOpened }: { onAllOpened: () => void }) => {
-    const [activeWindow, setActiveWindow] = useState<keyof typeof contentData | null>(null);
-    const [openedIcons, setOpenedIcons] = useState<Set<keyof typeof contentData>>(new Set());
+const Desktop = ({ onGameEnd }: { onGameEnd: () => void }) => {
+    const [activeWindow, setActiveWindow] = useState<IconKey | null>(null);
+    const [allContent, setAllContent] = useState(initialContentData);
+    const [iconLocks, setIconLocks] = useState({ network: true, recycle: true });
+    const [openedOnce, setOpenedOnce] = useState<Set<IconKey>>(new Set());
+    const [interactedWindows, setInteractedWindows] = useState<Set<IconKey>>(new Set());
     
-    // Item related state
     const [inventory, setInventory] = useState<Item[]>([]);
     const [synthesisSlots, setSynthesisSlots] = useState<Array<Item | null>>([null, null]);
-    const [collectedWindows, setCollectedWindows] = useState<Set<string>>(new Set());
-    const [showFailToast, setShowFailToast] = useState(0); // Use a counter to re-trigger effect
-    const [healingEffect, setHealingEffect] = useState<{ title: string; message: string } | null>(null);
+    
+    const [showFailToast, setShowFailToast] = useState(0);
+    const [showLockToast, setShowLockToast] = useState(0);
 
-    const handleOpen = (icon: keyof typeof contentData) => {
-        setActiveWindow(icon);
-        const newOpened = new Set(openedIcons).add(icon);
-        setOpenedIcons(newOpened);
-        
-        if (!collectedWindows.has(icon)) {
-            setInventory(prev => [...prev, ...initialPlainItems[icon]]);
-            setCollectedWindows(new Set(collectedWindows).add(icon));
+    const [isDraggingSacred, setIsDraggingSacred] = useState(false);
+    
+    const handleOpen = (icon: IconKey) => {
+        if (iconLocks[icon as keyof typeof iconLocks]) {
+            setShowLockToast(c => c + 1);
+            return;
         }
-        
-        if (newOpened.size === Object.keys(contentData).length) {
-            setTimeout(onAllOpened, 3000);
+        setActiveWindow(icon);
+        if (!openedOnce.has(icon)) {
+            setInventory(prev => [...prev, ...initialPlainItems[icon]]);
+            setOpenedOnce(new Set(openedOnce).add(icon));
         }
     };
     
@@ -315,9 +346,50 @@ const Desktop = ({ onAllOpened }: { onAllOpened: () => void }) => {
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, item: Item) => {
         e.dataTransfer.setData("item", JSON.stringify(item));
+        if (item.type === 'sacred') {
+            setIsDraggingSacred(true);
+        }
+    };
+
+    const handleGlobalDragEnd = () => {
+        setIsDraggingSacred(false);
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
+    
+    const handleDropOnIcon = (e: React.DragEvent<HTMLDivElement>, target: IconKey) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingSacred(false);
+
+        const itemJSON = e.dataTransfer.getData("item");
+        if (!itemJSON) return;
+        const droppedItem: Item = JSON.parse(itemJSON);
+
+        if (droppedItem.type !== 'sacred' || interactedWindows.has(target)) {
+            return;
+        }
+
+        const effect = interactionEffects[droppedItem.name]?.[target];
+        if (effect) {
+            setAllContent(prev => ({
+                ...prev,
+                [target]: { ...prev[target], content: effect.change(prev[target].content) }
+            }));
+
+            setInventory(prev => prev.filter(i => i.id !== droppedItem.id));
+            const newInteracted = new Set(interactedWindows).add(target);
+            setInteractedWindows(newInteracted);
+
+            if (target === 'docs' && effect.type === 'heal') {
+                setIconLocks({ network: false, recycle: false });
+            }
+
+            if (newInteracted.size === 3) {
+                setTimeout(onGameEnd, 2000);
+            }
+        }
+    };
 
     const handleDropOnSynthesis = (e: React.DragEvent<HTMLDivElement>, index: number) => {
         e.preventDefault();
@@ -358,54 +430,61 @@ const Desktop = ({ onAllOpened }: { onAllOpened: () => void }) => {
     useEffect(() => {
         const [item1, item2] = synthesisSlots;
         if (item1 && item2) {
-            const sortedNames = [item1.name, item2.name].sort().join('|');
-            const resultName = recipes[sortedNames];
+            const sortedNames = [item1.name, item2.name].sort();
+            const recipe = recipesList.find(r => {
+                const sortedRecipeItems = [r[0], r[1]].sort();
+                return sortedRecipeItems[0] === sortedNames[0] && sortedRecipeItems[1] === sortedNames[1];
+            });
 
-            if (resultName) {
-                const newItem: Item = {
-                    id: `sacred-${Date.now()}`,
-                    name: resultName,
-                    type: 'sacred'
-                };
+            if (recipe) {
+                const resultName = recipe[2];
+                const newItem: Item = { id: `sacred-${Date.now()}`, name: resultName, type: 'sacred' };
                 setInventory(prev => [...prev, newItem]);
-                setSynthesisSlots([null, null]);
-                if (sacredItemEffects[resultName]) {
-                    setHealingEffect(sacredItemEffects[resultName]);
-                }
             } else {
                 setShowFailToast(count => count + 1);
                 setInventory(prev => [...prev, item1, item2]);
-                setSynthesisSlots([null, null]);
             }
+            setSynthesisSlots([null, null]);
         }
     }, [synthesisSlots]);
 
+    const IconWrapper = ({ children, target }: { children: React.ReactNode; target: IconKey; }) => {
+        const canDrop = isDraggingSacred && !interactedWindows.has(target) && !iconLocks[target as keyof typeof iconLocks];
+        return (
+            <div
+                onDrop={(e) => handleDropOnIcon(e, target)}
+                onDragOver={handleDragOver}
+                className={`p-2 rounded-lg transition-all ${canDrop ? 'bg-blue-500/50 ring-2 ring-white' : ''}`}
+            >
+                {children}
+            </div>
+        );
+    };
+
     return (
-        <div className="h-screen w-screen overflow-hidden bg-black flex flex-col" onDragOver={handleDragOver} onDrop={handleDropOnInventory}>
-            {/* Main content area */}
+        <div className="h-screen w-screen overflow-hidden bg-black flex flex-col" onDragOver={handleDragOver} onDrop={handleDropOnInventory} onDragEnd={handleGlobalDragEnd}>
             <div className="flex-grow flex">
-                {/* Icon Bar */}
-                <div className="p-4 flex flex-col gap-8">
-                    <DesktopIcon icon={<MyDocumentsIcon />} name="我的文档" onDoubleClick={() => handleOpen('docs')} />
-                    <DesktopIcon icon={<NetworkNeighborhoodIcon />} name="网上邻居" onDoubleClick={() => handleOpen('network')} />
-                    <DesktopIcon icon={<RecycleBinIcon />} name="回收站" onDoubleClick={() => handleOpen('recycle')} />
+                <div className="p-4 flex flex-col gap-4">
+                    <IconWrapper target="docs">
+                        <DesktopIcon icon={<MyDocumentsIcon />} name="我的文档" onDoubleClick={() => handleOpen('docs')} />
+                    </IconWrapper>
+                    <IconWrapper target="network">
+                        <DesktopIcon icon={<NetworkNeighborhoodIcon />} name="网上邻居" onDoubleClick={() => handleOpen('network')} locked={iconLocks.network} />
+                    </IconWrapper>
+                    <IconWrapper target="recycle">
+                        <DesktopIcon icon={<RecycleBinIcon />} name="回收站" onDoubleClick={() => handleOpen('recycle')} locked={iconLocks.recycle} />
+                    </IconWrapper>
                 </div>
             </div>
 
-            {/* Item Bar */}
             <div className="w-full h-24 bg-gray-800/70 border-t-2 border-gray-600 flex items-center p-2 shadow-inner backdrop-blur-sm">
-                <div className="flex gap-1">
-                    <button aria-label="Scroll left" className="w-10 h-10 bg-gray-700 text-white rounded border border-gray-500 hover:bg-gray-600 transition-colors">{'<'}</button>
-                    <button aria-label="Scroll right" className="w-10 h-10 bg-gray-700 text-white rounded border border-gray-500 hover:bg-gray-600 transition-colors">{'>'}</button>
-                </div>
-                
-                <div className="flex-grow h-full bg-black/30 mx-4 rounded border border-gray-700 flex items-center p-2 gap-2 overflow-x-auto">
+                 <div className="flex-grow h-full bg-black/30 mx-4 rounded border border-gray-700 flex items-center p-2 gap-2 overflow-x-auto">
                     {inventory.map(item => (
                         <div 
                             key={item.id}
                             draggable
                             onDragStart={(e) => handleDragStart(e, item)}
-                            className={`w-16 h-16 p-1 flex justify-center items-center rounded-md border-2 transition-all duration-200 cursor-grab ${
+                            className={`w-16 h-16 p-1 flex-shrink-0 flex justify-center items-center rounded-md border-2 transition-all duration-200 cursor-grab ${
                                 item.type === 'sacred' 
                                     ? 'bg-yellow-200 border-yellow-500 shadow-lg shadow-yellow-500/50' 
                                     : 'bg-gray-700 border-gray-500'
@@ -419,7 +498,6 @@ const Desktop = ({ onAllOpened }: { onAllOpened: () => void }) => {
                     ))}
                 </div>
 
-                {/* Synthesis Area */}
                 <div className="flex items-center gap-2 border-l-2 border-gray-600 pl-4 ml-4">
                     {[0, 1].map(index => (
                         <div 
@@ -445,44 +523,48 @@ const Desktop = ({ onAllOpened }: { onAllOpened: () => void }) => {
                 </div>
             </div>
 
-            {/* Windows and modals */}
             {activeWindow && (
                 <Window
-                    title={contentData[activeWindow].title}
-                    content={contentData[activeWindow].content}
+                    title={allContent[activeWindow].title}
+                    content={allContent[activeWindow].content}
                     onClose={handleClose}
                 />
             )}
             
             <Toast message="这两个道具无法合成" show={showFailToast} />
+            <Toast message="此图标尚未解锁" show={showLockToast} />
 
-            {healingEffect && (
-                <HealingWindow 
-                    title={healingEffect.title}
-                    message={healingEffect.message}
-                    onClose={() => setHealingEffect(null)}
-                />
-            )}
         </div>
     );
 };
 
-const EndingScreen = () => (
-    <div className="bg-black text-white font-serif h-screen w-screen flex flex-col justify-center items-center p-8">
-         <div className="text-2xl max-w-3xl text-center leading-relaxed space-y-6">
-            <p>你和父亲，终于在各自的世界里，看到了彼此。</p>
-            <p>裂痕被理解的暖流弥合。破碎的圆，重新变得完整。</p>
-            <p>原来，快乐星球，不在遥远的星际，而在每一个愿意沟通与和解的，当下。</p>
+const EndingScreen = () => {
+    const handleRestart = () => {
+        window.location.reload();
+    };
+    return (
+        <div className="bg-black text-white font-serif h-screen w-screen flex flex-col justify-center items-center p-8 animate-fade-in">
+             <div className="text-2xl max-w-3xl text-center leading-relaxed space-y-6">
+                <p>你和父亲，终于在各自的世界里，看到了彼此。</p>
+                <p>裂痕被理解的暖流弥合。破碎的圆，重新变得完整。</p>
+                <p>原来，快乐星球，不在遥远的星际，而在每一个愿意沟通与和解的，当下。</p>
+            </div>
+             <button
+                onClick={handleRestart}
+                className="mt-12 bg-[#C0C0C0] border-2 border-solid border-t-white border-l-white border-r-black border-b-black px-8 py-2 font-bold hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-black"
+            >
+                重新开始
+            </button>
         </div>
-    </div>
-);
+    );
+};
 
 const App = () => {
     const [stage, setStage] = useState<'boot' | 'quote' | 'desktop' | 'ending'>('boot');
 
-    const handleAllOpened = () => {
+    const handleGameEnd = useCallback(() => {
         setStage('ending');
-    };
+    }, []);
 
     switch (stage) {
         case 'boot':
@@ -490,7 +572,7 @@ const App = () => {
         case 'quote':
             return <BenjaminQuote onContinue={() => setStage('desktop')} />;
         case 'desktop':
-            return <Desktop onAllOpened={handleAllOpened} />;
+            return <Desktop onGameEnd={handleGameEnd} />;
         case 'ending':
             return <EndingScreen />;
         default:
