@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 // --- SVG Icon Components ---
@@ -62,40 +64,37 @@ interface Item {
 
 const initialPlainItems: Record<IconKey, Item[]> = {
     docs: [
-        { id: 'item-1', name: '一本《小王子》', type: 'plain' },
-        { id: 'item-2', name: '一张手绘的地图', type: 'plain' },
-        { id: 'item-3', name: '一支沾着墨水的钢笔', type: 'plain' },
+        { id: 'item-1', name: '《小王子》', type: 'plain' },
+        { id: 'item-2', name: '手绘的地图', type: 'plain' },
+        { id: 'item-3', name: '沾着墨水的钢笔', type: 'plain' },
     ],
     network: [
-        { id: 'item-4', name: '那本未读完的《高等数学》', type: 'plain' },
-        { id: 'item-5', name: '一份带有红色箭头（下跌）的股票报告', type: 'plain' },
-        { id: 'item-6', name: '一杯浓茶', type: 'plain' },
+        { id: 'item-4', name: '《高等数学》', type: 'plain' },
+        { id: 'item-5', name: '股票报告', type: 'plain' },
+        { id: 'item-6', name: '浓茶', type: 'plain' },
     ],
     recycle: [],
 };
 
 // [Item1, Item2, Result]
 const recipesList: [string, string, string][] = [
-    // Your items
-    ["一本《小王子》", "一张手绘的地图", "星空航路图"],
-    ["一本《小王子》", "一支沾着墨水的钢笔", "童话之笔"],
-    ["一张手绘的地图", "一支沾着墨水的钢笔", "探险家日记"],
-    // Father's items
-    ["那本未读完的《高等数学》", "一份带有红色箭头（下跌）的股票报告", "确定性公式"],
-    ["那本未读完的《高等数学》", "一杯浓茶", "苦涩人生公式"],
-    ["一份带有红色箭头（下跌）的股票报告", "一杯浓茶", "风险与代价"],
-    // Cross items
-    ["一本《小王子》", "一份带有红色箭头（下跌）的股票报告", "被定价的玫瑰"],
-    ["一本《小王子》", "那本未读完的《高等数学》", "星辰的方程式"],
-    ["一张手绘的地图", "那本未读完的《高等数学》", "坐标系里的世界"],
-    ["一支沾着墨水的钢笔", "那本未读完的《高等数学》", "逻辑的诗篇"],
+    ["《小王子》", "手绘的地图", "星空航路图"],
+    ["《小王子》", "沾着墨水的钢笔", "童话之笔"],
+    ["手绘的地图", "沾着墨水的钢笔", "探险家日记"],
+    ["《高等数学》", "股票报告", "确定性公式"],
+    ["《高等数学》", "浓茶", "苦涩人生公式"],
+    ["股票报告", "浓茶", "风险与代价"],
+    ["《小王子》", "《高等数学》", "星辰的方程式"],
+    ["《小王子》", "股票报告", "被定价的玫瑰"],
+    ["手绘的地图", "《高等数学》", "坐标系里的世界"],
+    ["沾着墨水的钢笔", "《高等数学》", "逻辑的诗篇"],
 ];
 
 const interactionEffects: Record<string, Partial<Record<IconKey, { type: 'heal' | 'no-heal', change: (prev: string | string[]) => string | string[] }>>> = {
     "星空航路图": {
         docs: { type: 'heal', change: (prev) => (prev as string).replace('深深的怀疑', '<s>深深的怀疑</s>') + '<new>你明白了，父亲看到的只是脚下的土地，而你，拥有的是整片星空。</new>' },
         network: { type: 'heal', change: (prev) => prev + '<new>电脑屏幕上的《高等数学》旁边，浮现出一片星空背景。他似乎想起了什么，原来复杂的公式也能描绘星辰的轨迹，就像那些看似无用的梦想。</new>' },
-        recycle: { type: 'heal', change: (prev) => (prev as string[]).map(s => s === '中间，一张破碎的圆。汤，凉了。' ? '中间，一张<s>破碎的</s>圆被星光填补。汤，温了。' : s).concat('<new>他的K线，我的诗，都是探索未知世界的航路。</new>') },
+        recycle: { type: 'heal', change: (prev) => (prev as string[]).map(s => s === '中间，一张破碎的圆。汤，凉了。' ? '“破碎的圆”的裂痕中开始流淌星光，仿佛在被填补。汤，温了。' : s).concat('<new>他的K线，我的诗，都是探索未知世界的航路。</new>') },
     },
     "童话之笔": {
         docs: { type: 'heal', change: (prev) => (prev as string).replace('“没有用”', '“<s>没有用</s>”<new>（被一朵玫瑰花的墨迹覆盖）</new>') + '<new>笔尖落下，写下的不是迎合，而是内心最真实的童话。真正的价值，无需向世界证明。</new>' },
@@ -143,6 +142,33 @@ const interactionEffects: Record<string, Partial<Record<IconKey, { type: 'heal' 
         recycle: { type: 'no-heal', change: (prev) => (prev as string[]).map(s => s === '无声的河流。' ? '沉默，也是一种逻辑。' : s) },
     },
 };
+
+// --- Ending Data & Logic ---
+
+type Ending = { title: string; description: string; };
+type InteractionResults = Partial<Record<IconKey, 'heal' | 'no-heal'>>;
+
+const endings: Record<string, Ending> = {
+    compass: { title: '《迷失的罗盘》', description: '你没能克服对自我价值的怀疑，最终放弃了对文科的热爱。你屈服于父亲的期望，但内心感到迷茫和空虚。你的人生轨迹被彻底改变，而核心的冲突从未得到解决。' },
+    bridge: { title: '《心与心的桥梁》', description: '你找到了自我价值，也理解了父亲焦虑背后的爱。在回收站，你用这份双向的理解，最终消解了沟通的障碍。你们之间不再有隔阂，找到了真正的沟通方式，共同走向了充满希望的未来。' },
+    lie: { title: '《心照不宣的谎言》', description: '你通过治愈自我，获得了面对父亲的勇气。在回收站，你成功地与他达成了表面的和解，但由于你从未真正理解他内心的恐惧，这份平静只是一种心照不宣的妥协。你们避免了争吵，但真正的隔阂仍然存在，它像一粒种子，在未来随时可能再次发芽。' },
+    worlds: { title: '《各自的世界》', description: '你已经找到了自我价值，也理解了父亲。但你没能将这份理解转化为实际的沟通。你们的关系变得相安无事，但只是因为你选择了不再与他争辩，各自活在自己的世界里，你感到一种孤独的平静。' },
+    dinner: { title: '《破碎的家庭晚餐》', description: '你找到了自我价值，但当你试图去理解父亲时，选择了错误的交互方式，导致沟通彻底破裂。你们之间的关系陷入冰冷的僵局，家中的氛围令人窒息，核心问题未能解决。' },
+};
+
+const determineEnding = (results: InteractionResults): Ending => {
+    const { docs, network, recycle } = results;
+
+    if (docs === 'no-heal') return endings.compass;
+    if (docs === 'heal' && network === 'heal' && recycle === 'heal') return endings.bridge;
+    if (docs === 'heal' && network === 'no-heal' && recycle === 'heal') return endings.lie;
+    if (docs === 'heal' && network === 'heal' && recycle === 'no-heal') return endings.worlds;
+    if (docs === 'heal' && network === 'no-heal' && recycle === 'no-heal') return endings.dinner;
+    
+    // Fallback, though should not be reached with the current logic.
+    return endings.compass;
+};
+
 
 // --- UI Components ---
 const renderStyledText = (text: string) => {
@@ -315,12 +341,13 @@ const BenjaminQuote = ({ onContinue }: { onContinue: () => void }) => {
     );
 };
 
-const Desktop = ({ onGameEnd }: { onGameEnd: () => void }) => {
+const Desktop = ({ onGameEnd }: { onGameEnd: (results: InteractionResults) => void }) => {
     const [activeWindow, setActiveWindow] = useState<IconKey | null>(null);
     const [allContent, setAllContent] = useState(initialContentData);
     const [iconLocks, setIconLocks] = useState({ network: true, recycle: true });
     const [openedOnce, setOpenedOnce] = useState<Set<IconKey>>(new Set());
     const [interactedWindows, setInteractedWindows] = useState<Set<IconKey>>(new Set());
+    const [interactionResults, setInteractionResults] = useState<InteractionResults>({});
     
     const [inventory, setInventory] = useState<Item[]>([]);
     const [synthesisSlots, setSynthesisSlots] = useState<Array<Item | null>>([null, null]);
@@ -378,15 +405,24 @@ const Desktop = ({ onGameEnd }: { onGameEnd: () => void }) => {
             }));
 
             setInventory(prev => prev.filter(i => i.id !== droppedItem.id));
+            
             const newInteracted = new Set(interactedWindows).add(target);
             setInteractedWindows(newInteracted);
+
+            const newResults = { ...interactionResults, [target]: effect.type };
+            setInteractionResults(newResults);
 
             if (target === 'docs' && effect.type === 'heal') {
                 setIconLocks({ network: false, recycle: false });
             }
 
+            if (target === 'docs' && effect.type === 'no-heal') {
+                 setTimeout(() => onGameEnd(newResults), 2000);
+                 return;
+            }
+
             if (newInteracted.size === 3) {
-                setTimeout(onGameEnd, 2000);
+                setTimeout(() => onGameEnd(newResults), 2000);
             }
         }
     };
@@ -538,46 +574,52 @@ const Desktop = ({ onGameEnd }: { onGameEnd: () => void }) => {
     );
 };
 
-const EndingScreen = () => {
+const EndingScreen = ({ title, description }: { title: string, description: string }) => {
     const handleRestart = () => {
         window.location.reload();
     };
     return (
         <div className="bg-black text-white font-serif h-screen w-screen flex flex-col justify-center items-center p-8 animate-fade-in">
-             <div className="text-2xl max-w-3xl text-center leading-relaxed space-y-6">
-                <p>你和父亲，终于在各自的世界里，看到了彼此。</p>
-                <p>裂痕被理解的暖流弥合。破碎的圆，重新变得完整。</p>
-                <p>原来，快乐星球，不在遥远的星际，而在每一个愿意沟通与和解的，当下。</p>
+            <div className="text-2xl max-w-3xl text-center leading-relaxed">
+                <h1 className="text-4xl font-bold mb-4">{title}</h1>
+                <p>{description}</p>
+                <button 
+                    onClick={handleRestart}
+                    className="mt-8 px-6 py-2 border border-white rounded hover:bg-white hover:text-black transition-colors"
+                >
+                    重新开始
+                </button>
             </div>
-             <button
-                onClick={handleRestart}
-                className="mt-12 bg-[#C0C0C0] border-2 border-solid border-t-white border-l-white border-r-black border-b-black px-8 py-2 font-bold hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-black"
-            >
-                重新开始
-            </button>
         </div>
     );
 };
 
 const App = () => {
-    const [stage, setStage] = useState<'boot' | 'quote' | 'desktop' | 'ending'>('boot');
+    const [gameState, setGameState] = useState<'boot' | 'quote' | 'desktop' | 'end'>('boot');
+    const [ending, setEnding] = useState<Ending | null>(null);
 
-    const handleGameEnd = useCallback(() => {
-        setStage('ending');
+    const handleBootComplete = useCallback(() => setGameState('quote'), []);
+    const handleQuoteContinue = useCallback(() => setGameState('desktop'), []);
+
+    const handleGameEnd = useCallback((results: InteractionResults) => {
+        const finalEnding = determineEnding(results);
+        setEnding(finalEnding);
+        setGameState('end');
     }, []);
 
-    switch (stage) {
-        case 'boot':
-            return <BootScreen onBootComplete={() => setStage('quote')} />;
-        case 'quote':
-            return <BenjaminQuote onContinue={() => setStage('desktop')} />;
-        case 'desktop':
-            return <Desktop onGameEnd={handleGameEnd} />;
-        case 'ending':
-            return <EndingScreen />;
-        default:
-            return <BootScreen onBootComplete={() => setStage('quote')} />;
+    if (gameState === 'boot') {
+        return <BootScreen onBootComplete={handleBootComplete} />;
     }
+    if (gameState === 'quote') {
+        return <BenjaminQuote onContinue={handleQuoteContinue} />;
+    }
+    if (gameState === 'desktop') {
+        return <Desktop onGameEnd={handleGameEnd} />;
+    }
+    if (gameState === 'end' && ending) {
+        return <EndingScreen title={ending.title} description={ending.description} />;
+    }
+    return <div>Loading...</div>; // Fallback
 };
 
 export default App;
