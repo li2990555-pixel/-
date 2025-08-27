@@ -300,14 +300,23 @@ const BootScreen = ({ onBootComplete }: { onBootComplete: () => void }) => {
         "Welcome to 快乐星球.",
     ], []);
 
+    const [displayedLines, setDisplayedLines] = useState<string[]>([]);
+
     useEffect(() => {
-        const timer = setTimeout(onBootComplete, 1500);
-        return () => clearTimeout(timer);
-    }, [onBootComplete]);
+        if (displayedLines.length < bootLines.length) {
+            const timer = setTimeout(() => {
+                setDisplayedLines(prev => [...prev, bootLines[prev.length]]);
+            }, 100);
+            return () => clearTimeout(timer);
+        } else {
+            const finalTimer = setTimeout(onBootComplete, 500);
+            return () => clearTimeout(finalTimer);
+        }
+    }, [displayedLines, bootLines, onBootComplete]);
 
     return (
         <div className="bg-black text-green-400 font-mono h-screen w-screen p-4 flex flex-col justify-center items-start text-lg overflow-hidden">
-            {bootLines.map((line, i) => (
+            {displayedLines.map((line, i) => (
                 <p key={i}><span className="mr-2">{'>'}</span>{line}</p>
             ))}
              <p><span className="blinking-cursor">{'>'}</span></p>
@@ -472,17 +481,44 @@ const Desktop = ({ onGameEnd }: { onGameEnd: (results: InteractionResults) => vo
                 return sortedRecipeItems[0] === sortedNames[0] && sortedRecipeItems[1] === sortedNames[1];
             });
 
+            setSynthesisSlots([null, null]); // Clear slots for both cases
+
             if (recipe) {
                 const resultName = recipe[2];
                 const newItem: Item = { id: `sacred-${Date.now()}`, name: resultName, type: 'sacred' };
                 setInventory(prev => [...prev, newItem]);
             } else {
                 setShowFailToast(count => count + 1);
-                setInventory(prev => [...prev, item1, item2]);
+
+                // Check for the dead-end condition:
+                // After 2 interactions, if the player attempts to combine their last 2 plain items and fails, the game ends.
+                const isDeadEnd = 
+                    interactedWindows.size === 2 &&
+                    inventory.length === 0 && // This implies the only items in play were the two in the slots
+                    item1.type === 'plain' &&
+                    item2.type === 'plain';
+
+                if (isDeadEnd) {
+                    const allIcons: IconKey[] = ['docs', 'network', 'recycle'];
+                    const remainingIcon = allIcons.find(icon => !interactedWindows.has(icon));
+                    
+                    if (remainingIcon) {
+                        const finalResults = { ...interactionResults, [remainingIcon]: 'no-heal' as const };
+                        // Briefly return items to inventory for visual feedback before ending.
+                        setInventory([item1, item2]); 
+                        setTimeout(() => onGameEnd(finalResults), 1500); // Give user time to see the toast.
+                    } else {
+                        // Fallback: should not be reached if interactedWindows.size is 2.
+                        setInventory(prev => [...prev, item1, item2]);
+                    }
+                } else {
+                    // Normal failed synthesis: just return the items to the inventory.
+                    setInventory(prev => [...prev, item1, item2]);
+                }
             }
-            setSynthesisSlots([null, null]);
         }
-    }, [synthesisSlots]);
+    }, [synthesisSlots, inventory, interactedWindows, interactionResults, onGameEnd]);
+
 
     const IconWrapper = ({ children, target }: { children: React.ReactNode; target: IconKey; }) => {
         const canDrop = isDraggingSacred && !interactedWindows.has(target) && !iconLocks[target as keyof typeof iconLocks];
