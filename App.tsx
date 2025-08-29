@@ -86,7 +86,7 @@ const determineEnding = (results: InteractionResults, endingsData: GameData['end
         return { title: '《各自的世界》', description: endingsData.worlds.description };
     }
     if (docs === 'heal' && network === 'no-heal' && recycle === 'no-heal') {
-        return { title: '《破碎的家庭晚餐》', description: endingsData.dinner.description };
+        return { title: '《独角戏的落幕》', description: endingsData.dinner.description };
     }
     
     // Fallback for any undefined state.
@@ -627,29 +627,30 @@ const Desktop = ({ gameData, onGameEnd }: { gameData: GameData, onGameEnd: (resu
                 return sortedRecipeItems[0] === sortedNames[0] && sortedRecipeItems[1] === sortedNames[1];
             });
 
+            const docsInitialItemNames = gameData.initialPlainItems.docs.map(i => i.name);
+            const isEarlyDocsCombination = docsInitialItemNames.includes(item1.name) && docsInitialItemNames.includes(item2.name);
+
+            if (isEarlyDocsCombination) {
+                const isFailedSynthesis = !recipe;
+                const createsNoHealTrap = recipe && gameData.interactionEffects.find(item => item.name === recipe.result)?.effects.docs.type === 'no-heal';
+
+                if (isFailedSynthesis || createsNoHealTrap) {
+                    setShowFailToast(count => count + 1);
+                    setTimeout(() => {
+                        onGameEnd({ docs: 'no-heal' });
+                    }, 1500);
+                    return;
+                }
+            }
+
             if (recipe) {
                 setSynthesisSlots([null, null]);
                 const resultName = recipe.result;
                 const newItem: Item = { id: `sacred-${Date.now()}`, name: resultName, type: 'sacred' };
                 setInventory(prev => [...prev, newItem]);
             } else {
-                // Handle failed synthesis
                 setShowFailToast(count => count + 1);
 
-                const docsInitialItemNames = gameData.initialPlainItems.docs.map(i => i.name);
-                const isEarlyDocsFailure = docsInitialItemNames.includes(item1.name) && docsInitialItemNames.includes(item2.name);
-
-                // **FIXED LOGIC**: This is the specific, intended failure path for the 'Lost Compass' ending.
-                if (isEarlyDocsFailure) {
-                    // This combination is a designed failure. Trigger the ending directly.
-                    // Do not return items to inventory, leave them as a clue.
-                    setTimeout(() => {
-                        onGameEnd({ docs: 'no-heal' });
-                    }, 1500);
-                    return; // End execution here to prevent falling through to other logic.
-                }
-                
-                // Check for a "dead end" state later in the game.
                 const isDeadEnd = 
                     interactedWindows.size === 2 &&
                     inventory.length === 0 &&
@@ -665,11 +666,10 @@ const Desktop = ({ gameData, onGameEnd }: { gameData: GameData, onGameEnd: (resu
                         setTimeout(() => {
                              onGameEnd(finalResults);
                         }, 1500);
-                        return; // Prevent items from being returned to inventory.
+                        return;
                     }
                 }
 
-                // For all other non-critical failures, return items to inventory after a short delay.
                 setTimeout(() => {
                     setSynthesisSlots([null, null]);
                     setInventory(prev => [...prev, item1, item2]);
@@ -868,14 +868,22 @@ const App = () => {
 
     const generateGameData = useCallback(async (scene: SceneData, character: { role: string }) => {
         setStage('generating');
-        try {
-            setGenMessage(scene.confirmation);
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            setGenMessage(`正在进入与 ${character.role} 的共同记忆...`);
+        const maxRetries = 3;
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                if (attempt === 0) {
+                    setGenMessage(scene.confirmation);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    setGenMessage(`正在进入与 ${character.role} 的共同记忆...`);
+                } else {
+                    setGenMessage(`生成记忆时遇到困难，正在进行第 ${attempt + 1}/${maxRetries} 次尝试...`);
+                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+                }
+                
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-            const prompt = `你是一位情感细腻的创意游戏设计师，为一款关于回忆、成长和亲情的象征性解谜游戏生成核心数据。
+                const prompt = `你是一位情感细腻的创意游戏设计师，为一款关于回忆、成长和亲情的象征性解谜游戏生成核心数据。
 
 **核心故事背景：**
 *   **场景选择：** 玩家选择了充满象征意义的场景：“${scene.description}”。
@@ -942,28 +950,32 @@ const App = () => {
     *   **达成条件**: 成功治愈“我的文档”和“网上邻居”，但未治愈“回收站”。
     *   **任务**: 撰写描述，关于理解了彼此但未能有效沟通，导致一种平静但孤独的疏离。
 *   **结局5 (\`dinner\`)**: 
-    *   **标题**: 《破碎的家庭晚餐》
+    *   **标题**: 《独角戏的落幕》
     *   **达成条件**: 成功治愈“我的文档”，但在“网上邻居”和“回收站”中失败。
     *   **任务**: 撰写描述，关于实现了自我认知，但完全无法与他人建立连接，导致彻底的沟通崩溃。
 `;
 
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: masterPromptSchema,
-                },
-            });
-            
-            const jsonStr = response.text.trim();
-            const data = JSON.parse(jsonStr) as GameData;
-            setGameData(data);
-            setStage('desktop');
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: prompt,
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: masterPromptSchema,
+                    },
+                });
+                
+                const jsonStr = response.text.trim();
+                const data = JSON.parse(jsonStr) as GameData;
+                setGameData(data);
+                setStage('desktop');
+                return; // Success, exit loop and function.
 
-        } catch (e: any) {
-            console.error(e);
-            setGenError(e.message || "An unknown error occurred during generation.");
+            } catch (e: any) {
+                console.error(`Attempt ${attempt + 1} failed:`, e);
+                if (attempt === maxRetries - 1) { // This was the last attempt
+                    setGenError(e.message || `API 在 ${maxRetries} 次尝试后仍然调用失败。请刷新页面重试。`);
+                }
+            }
         }
     }, []);
 
