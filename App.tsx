@@ -74,23 +74,23 @@ const determineEnding = (results: InteractionResults, endingsData: GameData['end
     const { docs, network, recycle } = results;
 
     if (docs === 'no-heal') {
-        return { title: '《迷失的罗盘》', description: endingsData.compass.description };
+        return { title: '迷失的罗盘', description: endingsData.compass.description };
     }
     if (docs === 'heal' && network === 'heal' && recycle === 'heal') {
-        return { title: '《心与心的桥梁》', description: endingsData.bridge.description };
+        return { title: '心与心的桥梁', description: endingsData.bridge.description };
     }
     if (docs === 'heal' && network === 'no-heal' && recycle === 'heal') {
-        return { title: '《心照不宣的谎言》', description: endingsData.lie.description };
+        return { title: '心照不宣的谎言', description: endingsData.lie.description };
     }
     if (docs === 'heal' && network === 'heal' && recycle === 'no-heal') {
-        return { title: '《各自的世界》', description: endingsData.worlds.description };
+        return { title: '各自的世界', description: endingsData.worlds.description };
     }
     if (docs === 'heal' && network === 'no-heal' && recycle === 'no-heal') {
-        return { title: '《独角戏的落幕》', description: endingsData.dinner.description };
+        return { title: '独角戏的落幕', description: endingsData.dinner.description };
     }
     
     // Fallback for any undefined state.
-    return { title: '《迷失的罗盘》', description: endingsData.compass.description };
+    return { title: '迷失的罗盘', description: endingsData.compass.description };
 };
 
 
@@ -769,18 +769,27 @@ const Desktop = ({ gameData, onGameEnd }: { gameData: GameData, onGameEnd: (resu
     );
 };
 
-const EndingScreen = ({ title, description, onRestart }: { title: string, description: string, onRestart: () => void }) => {
+const EndingScreen = ({ title, description, image, onRestart }: { title: string, description: string, image: string | null, onRestart: () => void }) => {
     return (
         <div className="bg-black text-white font-serif h-screen w-screen flex flex-col justify-center items-center p-8 animate-fade-in">
-            <div className="text-2xl max-w-3xl text-center leading-relaxed">
-                <h1 className="text-4xl font-bold mb-4">{title}</h1>
-                <p>{description}</p>
-                <button 
-                    onClick={onRestart}
-                    className="mt-8 px-6 py-2 border border-white rounded hover:bg-white hover:text-black transition-colors"
-                >
-                    重新开始
-                </button>
+            <div className="max-w-4xl w-full flex flex-col md:flex-row items-center justify-center gap-8 bg-slate-900/50 p-8 rounded-lg border border-slate-700">
+                {image ? (
+                    <img src={image} alt={title} className="w-64 h-64 object-cover border-4 border-white flex-shrink-0" style={{ imageRendering: 'pixelated' }} />
+                ) : (
+                    <div className="w-64 h-64 bg-gray-800 border-4 border-white flex items-center justify-center flex-shrink-0">
+                        <span className="text-gray-500 text-center">纪念插画<br/>生成失败</span>
+                    </div>
+                )}
+                <div className="text-center md:text-left">
+                    <h1 className="text-4xl font-bold mb-4">{title}</h1>
+                    <p className="text-xl leading-relaxed">{description}</p>
+                    <button 
+                        onClick={onRestart}
+                        className="mt-8 px-6 py-2 border border-white rounded hover:bg-white hover:text-black transition-colors"
+                    >
+                        重新开始
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -858,12 +867,13 @@ const masterPromptSchema = {
 // --- Main App Component ---
 
 const App = () => {
-    type Stage = 'boot' | 'quote' | 'choice' | 'characterChoice' | 'generating' | 'desktop' | 'ending';
+    type Stage = 'boot' | 'quote' | 'choice' | 'characterChoice' | 'generating' | 'desktop' | 'generatingEnding' | 'ending';
     const [stage, setStage] = useState<Stage>('boot');
     const [selectedScene, setSelectedScene] = useState<SceneData | null>(null);
     const [gameData, setGameData] = useState<GameData | null>(null);
     const [genError, setGenError] = useState<string | null>(null);
     const [endingResult, setEndingResult] = useState<Ending | null>(null);
+    const [endingImage, setEndingImage] = useState<string | null>(null);
     const [genMessage, setGenMessage] = useState('正在连接到核心记忆...');
 
     const generateGameData = useCallback(async (scene: SceneData, character: { role: string }) => {
@@ -934,23 +944,23 @@ const App = () => {
 1.  游戏有5个固定的结局和达成条件。你的任务是为每一个结局撰写一段引人入胜的、与玩家在“${scene.description}”场景中同“${character.role}”的故事紧密相连的中文\`description\`。结局的JSON key必须是 'compass', 'bridge', 'lie', 'worlds', 'dinner'。
 
 *   **结局1 (\`compass\`)**: 
-    *   **标题**: 《迷失的罗盘》
+    *   **标题**: 迷失的罗盘
     *   **达成条件**: “我的文档”治愈失败。
     *   **任务**: 撰写描述，关于未能解决最初的内心矛盾。
 *   **结局2 (\`bridge\`)**: 
-    *   **标题**: 《心与心的桥梁》
+    *   **标题**: 心与心的桥梁
     *   **达成条件**: 成功治愈“我的文档”、“网上邻居”、“回收站”。
     *   **任务**: 撰写描述，关于完全的和解与相互理解。
 *   **结局3 (\`lie\`)**: 
-    *   **标题**: 《心照不宣的谎言》
+    *   **标题**: 心照不宣的谎言
     *   **达成条件**: 成功治愈“我的文档”和“回收站”，但未治愈“网上邻居”。
     *   **任务**: 撰写描述，关于一种没有真正理解对方的表面和解。
 *   **结局4 (\`worlds\`)**: 
-    *   **标题**: 《各自的世界》
+    *   **标题**: 各自的世界
     *   **达成条件**: 成功治愈“我的文档”和“网上邻居”，但未治愈“回收站”。
     *   **任务**: 撰写描述，关于理解了彼此但未能有效沟通，导致一种平静但孤独的疏离。
 *   **结局5 (\`dinner\`)**: 
-    *   **标题**: 《独角戏的落幕》
+    *   **标题**: 独角戏的落幕
     *   **达成条件**: 成功治愈“我的文档”，但在“网上邻居”和“回收站”中失败。
     *   **任务**: 撰写描述，关于实现了自我认知，但完全无法与他人建立连接，导致彻底的沟通崩溃。
 `;
@@ -979,6 +989,40 @@ const App = () => {
         }
     }, []);
 
+    useEffect(() => {
+        const generateEndingImage = async (ending: Ending) => {
+             try {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+                const prompt = `Pixel art, 16-bit retro video game style, moody and atmospheric. A symbolic illustration for a story ending titled '${ending.title}'. The scene should evoke the feeling of this description: "${ending.description}"`;
+                
+                const response = await ai.models.generateImages({
+                    model: 'imagen-4.0-generate-001',
+                    prompt: prompt,
+                    config: {
+                        numberOfImages: 1,
+                        outputMimeType: 'image/png',
+                        aspectRatio: '1:1',
+                    },
+                });
+
+                const base64ImageBytes = response.generatedImages[0].image.imageBytes;
+                const imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+                setEndingImage(imageUrl);
+
+            } catch (e) {
+                console.error("Failed to generate ending image:", e);
+                // Image gen failed, but we still proceed. endingImage will be null.
+            } finally {
+                setStage('ending');
+            }
+        };
+
+        if (stage === 'generatingEnding' && endingResult) {
+            generateEndingImage(endingResult);
+        }
+    }, [stage, endingResult]);
+
+
     const handleSceneSelect = (scene: SceneData) => {
         setSelectedScene(scene);
         setStage('characterChoice');
@@ -994,13 +1038,14 @@ const App = () => {
         if (gameData) {
             const finalEnding = determineEnding(results, gameData.endings);
             setEndingResult(finalEnding);
-            setStage('ending');
+            setStage('generatingEnding');
         }
     }, [gameData]);
 
     const handleRestart = () => {
         setGameData(null);
         setEndingResult(null);
+        setEndingImage(null);
         setGenError(null);
         setSelectedScene(null);
         setStage('choice'); 
@@ -1019,8 +1064,10 @@ const App = () => {
             return <GeneratingScreen message={genMessage} error={genError} />;
         case 'desktop':
             return gameData ? <Desktop gameData={gameData} onGameEnd={handleGameEnd} /> : <GeneratingScreen message="加载游戏数据时出错..." error="Game data is null." />;
+        case 'generatingEnding':
+            return <GeneratingScreen message="正在根据结局生成纪念插画..." error={null} />;
         case 'ending':
-            return endingResult ? <EndingScreen title={endingResult.title} description={endingResult.description} onRestart={handleRestart} /> : <GeneratingScreen message="加载结局时出错..." error="Ending result is null." />;
+            return endingResult ? <EndingScreen title={endingResult.title} description={endingResult.description} image={endingImage} onRestart={handleRestart} /> : <GeneratingScreen message="加载结局时出错..." error="Ending result is null." />;
         default:
             return <BootScreen onBootComplete={() => setStage('quote')} />;
     }
